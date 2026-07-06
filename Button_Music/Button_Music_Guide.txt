@@ -1,0 +1,263 @@
+================================================================================
+  Button + Music Player — ESP32 LyraT-Mini v1.2
+  Project: Button_Music
+  Board:   ESP32-LyraT-Mini v1.2
+  IDF:     ESP-IDF v6.0.1
+================================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. PIN CONFIGURATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  [ I2C Bus — shared codec control ]
+  ┌─────────────────┬──────────┬────────────────────────────────────────────┐
+  │ Signal          │ GPIO     │ Purpose                                    │
+  ├─────────────────┼──────────┼────────────────────────────────────────────┤
+  │ SDA             │ GPIO 18  │ I2C data line (ES8311 register control)    │
+  │ SCL             │ GPIO 23  │ I2C clock line                             │
+  └─────────────────┴──────────┴────────────────────────────────────────────┘
+
+  [ I2S0 — Audio output to ES8311 DAC → Headphone ]
+  ┌─────────────────┬──────────┬────────────────────────────────────────────┐
+  │ Signal          │ GPIO     │ Purpose                                    │
+  ├─────────────────┼──────────┼────────────────────────────────────────────┤
+  │ BCK (Bit Clock) │ GPIO 5   │ I2S bit clock                              │
+  │ WS  (Word Sel)  │ GPIO 25  │ I2S left/right channel select              │
+  │ DOUT (Data Out) │ GPIO 26  │ Audio data sent to ES8311 DAC              │
+  └─────────────────┴──────────┴────────────────────────────────────────────┘
+
+  [ Power Amplifier ]
+  ┌─────────────────┬──────────┬────────────────────────────────────────────┐
+  │ Signal          │ GPIO     │ Purpose                                    │
+  ├─────────────────┼──────────┼────────────────────────────────────────────┤
+  │ PA Enable       │ GPIO 21  │ Enables the headphone amplifier on boot    │
+  └─────────────────┴──────────┴────────────────────────────────────────────┘
+
+  [ Buttons ]
+  ┌─────────────────┬──────────┬────────────────────────────────────────────┐
+  │ Button          │ GPIO     │ How it works                               │
+  ├─────────────────┼──────────┼────────────────────────────────────────────┤
+  │ PLAY + SET      │ GPIO 39  │ Both share one ADC pin via resistor        │
+  │                 │ ADC1_CH3 │ divider. Pressing each button gives a      │
+  │                 │          │ different voltage level:                   │
+  │                 │          │   PLAY pressed → ADC raw ≈ 315 (near 0V)  │
+  │                 │          │   SET  pressed → ADC raw ≈ 841–1786       │
+  │                 │          │ Code reads ADC every 20ms to tell apart.  │
+  ├─────────────────┼──────────┼────────────────────────────────────────────┤
+  │ BOOT            │ GPIO 0   │ Direct GPIO, active-LOW, internal pull-up. │
+  │                 │          │ Polled every 20ms in button task.          │
+  └─────────────────┴──────────┴────────────────────────────────────────────┘
+
+  NOTE: GPIO 36 looks like a button pin but it is the ES7243E microphone
+        data line. There is NO physical button connected to GPIO 36.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. BUTTON CONTROLS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ┌──────────────────────┬────────────────────────────────────────────────┐
+  │ Button / Press type  │ Action                                         │
+  ├──────────────────────┼────────────────────────────────────────────────┤
+  │ PLAY — tap           │ Toggle Play / Pause                            │
+  │ SET  — short tap     │ Volume UP   (+10, max 100)                     │
+  │ SET  — hold 0.5s     │ Volume DOWN (-10, min 10)                      │
+  │ BOOT — press         │ Next song (cycles through all 3 songs)         │
+  └──────────────────────┴────────────────────────────────────────────────┘
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. SONGS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Song 0 — Canon in D
+    Source : canon.pcm (embedded binary file)
+    Type   : Real PCM audio, 16-bit, 16 kHz, mono
+    Method : Read raw bytes from flash, amplify 4x, write to I2S
+
+  Song 1 — Twinkle Twinkle Little Star
+    Source : Generated at runtime in code
+    Type   : Synthesized sine wave tones
+    Method : Note table (frequency + duration) → sinf() → I2S stereo frames
+
+  Song 2 — Mary Had a Little Lamb
+    Source : Generated at runtime in code
+    Type   : Synthesized sine wave tones
+    Method : Same as Song 1
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. HOW THE CODE WORKS — EXPLANATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  The project runs three things in parallel using FreeRTOS tasks:
+
+  ┌──────────────────┬──────────────────────────────────────────────────────┐
+  │ Task             │ What it does                                         │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ button_task      │ Polls ADC (GPIO39) every 20ms.                       │
+  │                  │ Detects press and release of PLAY and SET buttons.   │
+  │                  │ Also polls BOOT (GPIO0) for next-song.               │
+  │                  │ Updates is_playing, volume, song_num variables.      │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ play_task        │ Loops forever, writing audio to I2S.                 │
+  │                  │ Checks is_playing — writes silence when paused.      │
+  │                  │ Checks song_num — switches between 3 songs.          │
+  │                  │ For Canon: reads canon.pcm from flash memory.        │
+  │                  │ For Twinkle/Mary: generates sine wave per note.      │
+  └──────────────────┴──────────────────────────────────────────────────────┘
+
+  4a. I2C + ES8311 Codec Setup
+  ─────────────────────────────
+  On startup, the ESP32 communicates with the ES8311 audio DAC chip over
+  I2C (GPIO18/23). It tells the chip:
+    - Sample rate: 16,000 Hz (16 kHz)
+    - Bit depth: 16-bit stereo
+    - Mode: slave (ESP32 is the I2S master)
+    - Volume: 70 (out of 100) at start
+  The PA (power amplifier) on GPIO21 is also enabled so sound comes out
+  of the headphone jack.
+
+  4b. I2S Audio Output
+  ─────────────────────
+  I2S is a digital audio protocol. The ESP32 sends audio as a stream of
+  16-bit samples at 16,000 frames per second (16 kHz) over 3 wires:
+    - BCK  (GPIO5):  bit clock — ticks for every bit of data
+    - WS   (GPIO25): word select — tells ES8311 if it is L or R channel
+    - DOUT (GPIO26): the actual audio data bits
+
+  4c. ADC Button Detection
+  ─────────────────────────
+  The LyraT-Mini PLAY and SET buttons are wired in a resistor voltage
+  divider on a single ADC pin (GPIO39). Pressing different buttons
+  creates different voltages:
+
+    No button → ~3.3V  → ADC raw ≈ 4095
+    SET button → ~0.9V  → ADC raw ≈ 841–1786
+    PLAY button → ~0.1V  → ADC raw ≈ 311–315
+
+  The button_task reads this ADC value every 20ms and decides:
+    raw < 400       → PLAY button pressed
+    400 ≤ raw < 2800 → SET button pressed
+    raw ≥ 2800      → no button pressed
+
+  Acting on RELEASE (not press) avoids false triggers from bounce.
+
+  4d. PCM Audio Playback (Canon in D)
+  ─────────────────────────────────────
+  canon.pcm is embedded directly into the firmware binary at compile time
+  using CMake's EMBED_FILES. At runtime, it lives in flash memory and is
+  accessed via two symbols:
+    _binary_canon_pcm_start  — pointer to first byte
+    _binary_canon_pcm_end    — pointer past last byte
+
+  The play_task reads 1024 stereo frames (4096 bytes) at a time, applies
+  4x amplification, and writes to I2S. When it reaches the end it loops
+  back to the start with a short silence flush to prevent a click.
+
+  4e. Synthesized Music (Twinkle / Mary)
+  ────────────────────────────────────────
+  Each song is stored as a table of notes:
+    { frequency_Hz, duration_ms }
+
+  For each note, the play_task generates audio samples using:
+    sample = 26000 × sin(2π × frequency × time / sample_rate)
+
+  This produces a pure tone at the given frequency. Notes play one after
+  another, with a tiny 64-frame silence gap between each to prevent
+  audio smearing. When the note table ends, the song loops.
+
+  4f. Pause / Volume / Song Change
+  ──────────────────────────────────
+  Three volatile global variables connect button_task to play_task:
+
+    volatile bool is_playing  — play_task writes silence when false
+    volatile int  volume      — sent to ES8311 via esp_codec_dev API
+    volatile int  song_num    — play_task resets playback when this changes
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. BUILD AND FLASH STEPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Prerequisites:
+    - ESP-IDF v6.0.1 installed at C:\esp\v6.0.1\esp-idf
+    - Board connected via USB on COM3
+    - canon.pcm file present in Button_Music\main\
+
+  Step 1 — Open ESP-IDF terminal
+    Launch the "ESP-IDF v6.0.1 PowerShell" shortcut from Start menu.
+    This sets up all PATH and environment variables automatically.
+
+  Step 2 — Navigate to project folder
+    cd C:\Users\POOJA\Documents\Button_Music
+
+  Step 3 — (First time only) Clean and set target
+    idf.py fullclean
+    idf.py set-target esp32
+
+  Step 4 — Build, flash, and monitor in one command
+    idf.py -p COM3 flash monitor
+
+    This will:
+      - Compile all source files
+      - Embed canon.pcm into the firmware binary
+      - Flash the binary to the ESP32 over COM3
+      - Open the serial monitor (115200 baud) to show debug output
+
+  Step 5 — Exit monitor
+    Press Ctrl+] to stop the serial monitor.
+
+  Step 6 — If you see build errors after changing code
+    idf.py -p COM3 flash monitor    ← usually enough for code changes
+    idf.py fullclean                ← only needed if CMakeLists.txt changed
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. PROJECT FILE STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Button_Music\
+  ├── CMakeLists.txt               Project-level CMake config
+  ├── main\
+  │   ├── CMakeLists.txt           Registers source files and dependencies
+  │   ├── i2s_es8311_example.c     All application code (buttons + audio)
+  │   └── canon.pcm                Raw PCM audio file (embedded into firmware)
+  ├── managed_components\          Auto-downloaded: esp_codec_dev library
+  └── build\                       Generated build output (do not edit)
+
+  Key dependencies (in main/CMakeLists.txt PRIV_REQUIRES):
+    esp_driver_i2s   — I2S audio driver
+    esp_driver_i2c   — I2C driver for codec control
+    esp_driver_gpio  — GPIO for BOOT button and PA enable
+    esp_adc          — ADC driver for PLAY/SET button detection
+    esp_codec_dev    — High-level ES8311 codec control (volume, open, close)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. COMMON ERRORS AND FIXES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Error: "Build directory configured for project X not Y"
+  Fix:   idf.py fullclean  then  idf.py set-target esp32
+
+  Error: "Stack overflow in task play"
+  Fix:   Large arrays inside a task function overflow the stack.
+         Always declare big buffers as static or use malloc().
+         Increase task stack: xTaskCreate(..., 8192, ...)
+
+  Error: "cannot open source file freertos/FreeRTOS.h" in VS Code
+  Fix:   This is a VS Code IntelliSense issue — the code still compiles.
+         idf.py builds correctly because it knows the ESP-IDF include paths.
+
+  Error: Buttons not responding / wrong button triggers wrong action
+  Fix:   Add DBG prints to read raw ADC values.
+         Adjust PLAY_THRESH and SET_THRESH constants to match your readings.
+
+  Error: No sound from headphone
+  Fix:   Check PA_CTRL_IO (GPIO21) is set HIGH.
+         Confirm ES8311 volume is not 0 (default starts at 70).
+         Try idf.py fullclean and reflash.
+
+================================================================================

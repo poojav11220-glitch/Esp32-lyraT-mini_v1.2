@@ -1,0 +1,90 @@
+BLE_UART Project
+
+---
+What it does:
+ESP32 advertises as "LyraT BLE UART" → phone connects via Serial Bluetooth Terminal app → you type text commands → ESP32 responds back.
+
+---
+How BLE GATT works (quick concept):
+Phone (Serial Bluetooth Terminal  app)
+  │
+  │  
+  │
+  ├── RX Characteristic (Write)   ← phone sends commands to ESP32
+  └── TX Characteristic (Notify)  ← ESP32 pushes responses to phone
+
+Phone app to use (free):
+- Android: "Serial Bluetooth Terminal" 
+- iPhone: "nRF Connect" or "LightBlue"
+
+---
+Project structure:
+ble_uart/
+├── CMakeLists.txt
+├── sdkconfig.defaults      
+└── main/
+    ├── CMakeLists.txt
+    └── ble_uart.c
+
+Step 1 — Build and flash
+
+Open ESP-IDF PowerShell terminal:
+cd C:\Users\POOJA\Documents\ble_uart
+idf.py set-target esp32
+idf.py -p COM3 flash monitor
+
+Wait until you see:
+I (xxx) ble_uart: BLE UART Ready!
+I (xxx) ble_uart: Advertising started
+
+---
+Step 2 — Connect phone 
+
+1. Install Serial Bluetooth Terminal app (free, Android/iPhone)
+2. Open app → tap SCAN
+3. Find "LyraT BLE UART" → tap CONNECT
+4. You'll see: Ready! Type 'help' for commands.
+
+---
+Step 3 — Send commands
+
+Tap the RX characteristic → tap the up-arrow icon (write) → type a command → send:
+
+hello    →  Hello from LyraT Mini!
+status   →  Board: LyraT-Mini v1.2 ...
+help     →  lists all commands
+echo Hi  →  Hi
+
+
+Here's a summary of all the new commands added:
+
+┌───────────────────┬───────────────────────────────────────────────┐
+│      Command      │                 What it does                  
+├──────────────────────────────────────────────────────────────────┤
+│ ping              │ Replies pong — quick connection test          
+├─────────────────────────────────────────────────────────────────┤
+│ uptime            │ Shows time since boot (0h 3m 42s)             
+├─────────────────────────────────────────────────────────────────┤
+│ mem               │ Shows free + minimum heap in bytes            
+├──────────────────────────────────────────────────────────────────┤
+│ chip              │ Shows chip model, revision, cores, flash type 
+├──────────────────────────────────────────────────────────────────┤
+│ repeat <n> <text> │ Sends <text> repeated n times (max 20)        
+├──────────────────────────────────────────────────────────────────┤
+│ reset             │ Restarts the board gracefully                 
+├──────────────────────────────────────────────────────────────────┤
+│ echo <text>       │ Echoes text back                    
+├──────────────────────────────────────────────────────────────────┤
+│ hello             │ Greets the board                    
+├──────────────────────────────────────────────────────────────────┤
+│ status            │ Board/IDF info                      
+├──────────────────────────────────────────────────────────────────┤
+│ help              │ Updated list of all commands        
+└───────────────────┴───────────────────────────────────────────────┘
+
+Try after flashing:
+- ping → pong
+- uptime → Uptime: 0h 1m 23s
+- mem → Free heap: 214032 bytes
+- chip → Chip: ESP32 rev1 / Cores: 2
+- repeat 3 hello → sends [1] hello, [2] hello, [3] hello

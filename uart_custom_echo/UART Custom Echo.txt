@@ -1,0 +1,47 @@
+UART Custom Echo 
+
+ Build and Flash
+
+cd C:\Users\username\Documents\uart_custom_echo
+idf.py set-target esp32
+idf.py -p COM3 flash monitor
+
+
+
+Test It
+
+In the monitor, type a number and press Enter:
+
+┌──────────┬────────────────────────────┐
+│ You type │       ESP32 replies        │
+├──────────────────────────────────────┤
+│ 1        │ 2                          │
+├──────────────────────────────────────┤
+│ 6        │ 7                          │
+├─────────────────────────────────────┤
+│ 8        │ 9                          │
+├──────────────────────────────────────┤
+│ 9        │ 0 (wraps around)           │
+├──────────────────────────────────────┤
+│ a        │ a (non-digit echoed as-is) │
+└──────────┴────────────────────────────┘
+
+---
+How the Logic Works
+
+You type  →  '1'  (ASCII 49)
+              ↓
+         ch - '0'  = 1  (convert char to number)
+              ↓
+           1 + 1   = 2
+              ↓
+        % 10 + '0' = '2'  (convert back to char)
+              ↓
+         ESP32 sends '2' back
+
+The % 10 handles the wrap: 9 + 1 = 10 % 10 = 0 → sends '0'.
+
+
+
+
+

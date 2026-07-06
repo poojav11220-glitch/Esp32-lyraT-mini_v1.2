@@ -1,0 +1,55 @@
+What mic_test does
+
+It has two modes built in — currently play_task is active:
+
+Mode 1 — PCM Music Playback (currently active)
+
+canon.pcm file (embedded in flash)
+        │
+        ▼ amplify 4×
+    I2S0 TX → ES8311 DAC → headphone jack 🎧
+Plays a Canon in D music file stored directly in flash memory, loops forever.
+
+Mode 2 — Mic Echo (commented out / swap tasks)
+
+Microphone → ES7243 ADC → I2S1 RX
+                                │
+                         ESP32 amplifies 2×
+                                │
+                         I2S0 TX → ES8311 DAC → headphone jack 🎧
+You speak into mic → hear your own voice in headphones with gain boost.
+
+---
+Hardware path
+
+LyraT-Mini
+│
+├── ES7243 ADC (microphone chip)
+│     I2C addr: 0x1A  (config)
+│     I2S1: MCLK=GPIO0, BCK=GPIO32, WS=GPIO33, DIN=GPIO36
+│
+├── ES8311 DAC (headphone chip)
+│     I2C addr: 0x18  (config)
+│     I2S0: BCK=GPIO5, WS=GPIO25, DOUT=GPIO26
+│
+└── PA enable: GPIO21 (powers the speaker amp)
+
+---
+VU meter on serial (mic echo mode)
+
+MIC |#####....................| level=6543
+MIC |###......................| level=3210
+MIC |##########...............| level=12800   ← loud sound
+MIC |.........................| level=42       ← silence
+
+Each # = audio level — shows mic is picking up sound.
+
+---
+To switch from music → echo
+
+In app_main() change:
+xTaskCreate(play_task, "play", 4096, NULL, 5, NULL);
+to:
+xTaskCreate(echo_task, "echo", 4096, NULL, 5, NULL);
+
+Then rebuild and flash — plug in headphones, speak into mic, hear yourself.

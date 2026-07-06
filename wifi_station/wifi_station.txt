@@ -1,0 +1,70 @@
+Wifi_Station
+
+
+Open in VS Code
+
+code C:\Users\username\Documents\wifi_station
+
+
+Set Your WiFi Credentials via menuconfig
+
+cd C:\Users\username\Documents\wifi_station
+idf.py set-target esp32
+idf.py menuconfig
+
+In the menu that opens:
+
+Example Configuration
+    → WiFi SSID        ← type your WiFi name here
+    → WiFi Password    ← type your WiFi password here
+    → Maximum retry    ← leave as default (5)
+
+Press S to save → Q to quit
+
+
+Build and Flash
+
+idf.py -p COM3 flash monitor
+
+
+Expected Monitor Output
+
+I (xxx) wifi station: ESP_WIFI_MODE_STA
+I (xxx) wifi station: wifi_init_sta finished.
+I (xxx) wifi station: connect to ap SSID:YourWiFiName password:xxxxxxxx
+I (xxx) wifi: new:<6,0>, old:<1,0>, ap:<255,255>, sta:<6,0>, prof:1
+I (xxx) wifi station: got ip: 192.168.1.xxx     ← Success!
+I (xxx) wifi station: connected to ap SSID:YourWiFiName
+
+---
+What Each Part Means
+
+┌────────────────────────┬────────────────────────────────────┐
+│      Log message       │              Meaning               │
+├────────────────────────────────────────────────────────────┤
+│ wifi_init_sta finished │ WiFi driver started successfully   │
+├────────────────────────────────────────────────────────────┤
+│ connect to ap SSID:... │ Attempting to connect              │
+├────────────────────────────────────────────────────────────┤
+│ got ip: 192.168.x.x    │ Connected! Board has an IP address │
+├────────────────────────────────────────────────────────────┤
+│ retry to connect       │ Wrong password or weak signal      │
+├────────────────────────────────────────────────────────────┤
+│ connect to wifi Failed │ Could not connect after 5 retries  │
+└────────────────────────┴────────────────────────────────────┘
+
+---
+If Connection Fails
+
+┌────────────────────────────┬──────────────────────────────────────────────────────────┐
+│          Problem           │                           Fix                            │
+├──────────────────────────────────────────────────────────────────────────────────────┤
+│ retry to connect repeating │ Check WiFi name/password in menuconfig                   │
+├──────────────────────────────────────────────────────────────────────────────────────┤
+│ No output at all           │ Check baud rate is 115200                                │
+├──────────────────────────────────────────────────────────────────────────────────────┤
+│ connect to wifi Failed     │ Move board closer to router                              │
+├──────────────────────────────────────────────────────────────────────────────────────┤
+│ SSID not found             │ Make sure router is 2.4GHz — ESP32 does not support 5GHz │
+└────────────────────────────┴──────────────────────────────────────────────────────────┘
+

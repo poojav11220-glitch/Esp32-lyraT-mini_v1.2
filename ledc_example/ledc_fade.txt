@@ -1,0 +1,119 @@
+ledc_blink_fade
+
+
+PWM LED Fade — How It Works & What It's Used For
+
+---
+What is PWM?
+
+PWM = Pulse Width Modulation
+
+Instead of simply turning a pin ON or OFF, PWM rapidly switches the pin ON and OFF many times per second. The ratio of ON time to OFF time controls the perceived brightness.
+
+Full brightness (100%):   |‾‾‾‾‾‾‾‾‾‾|          |‾‾‾‾‾‾‾‾‾‾|
+                           ON          OFF         ON
+
+Half brightness (50%):    |‾‾‾‾‾|     |‾‾‾‾‾|     |‾‾‾‾‾|
+                           ON    OFF   ON    OFF   ON
+
+Low brightness (10%):     |‾|         |‾|         |‾|
+                           ON   OFF    ON   OFF    ON
+
+This ON/OFF ratio is called the duty cycle.
+
+---
+How LEDC (LED Control) Works on ESP32
+
+ESP32 has a built-in hardware peripheral called LEDC specifically for PWM:
+
+- Runs at a set frequency (e.g. 5000 Hz — too fast for the eye to see flicker)
+- You change the duty cycle from 0% → 100% gradually = fade in
+- Then 100% → 0% gradually = fade out
+- The hardware does this automatically — no CPU load
+
+Brightness
+100% |        ╱‾‾‾╲        ╱‾‾‾╲
+     |       ╱     ╲      ╱     ╲
+ 50% |      ╱       ╲    ╱       ╲
+     |     ╱         ╲  ╱         ╲
+  0% |____╱           ╲╱           ╲____
+          fade in   fade out   fade in
+
+
+---
+On Your ESP32-LyraT-Mini
+
+The LEDC example will:
+1. Fade the LED on GPIO 22 from OFF → full brightness
+2. Then fade from full brightness → OFF
+3. Repeat forever
+
+
+Step 1: Copy the Example to a New Folder
+
+Open ESP-IDF Terminal and run:
+
+xcopy /E /I /Y "C:\esp\v6.0.1\esp-idf\examples\peripherals\ledc\ledc_fade\*" "C:\Users\username\Documents\led_fade"
+
+---
+Step 2: Open the Folder in VS Code
+
+cd C:\Users\username\Documents\ledc_fade
+code .
+
+---
+Step 3: Change the GPIO Pin to 22
+
+Open main/ledc_example_main.c and find this section:
+
+#define LEDC_OUTPUT_IO          (18) // or similar default
+
+Change it to:
+
+#define LEDC_OUTPUT_IO          (22)
+
+---
+Step 4: Set the Target Chip
+
+In the ESP-IDF Terminal:
+
+cd C:\Users\POOJA\Documents\ledc_fade
+idf.py set-target esp32
+
+---
+Step 5: Build
+
+idf.py build
+
+Wait for it to finish. You should see:
+
+Project build complete. To flash, run:
+idf.py flash
+
+---
+Step 6: Flash to Board
+
+Make sure your ESP32-LyraT-Mini is connected via USB, then:
+
+idf.py -p COM3 flash
+
+▎ If you get a port error, hold the Boot button on the board while the flash starts, then release it.
+
+---
+Step 7: Monitor Output
+
+idf.py -p COM3 monitor
+
+You should see:
+
+I (xxx) LEDC: LEDC fade up to duty = 4000
+I (xxx) LEDC: LEDC fade down to duty = 0
+
+And the green LED on GPIO 22 will smoothly fade in and out.
+
+Press Ctrl+] to exit the monitor.
+
+---
+All-in-One Command (Build + Flash + Monitor)
+
+idf.py -p COM3 flash monitor

@@ -1,0 +1,83 @@
+What is the DS1302 RTC Module?
+
+The DS1302 does NOT detect the actual (real-world) time by itself. It is essentially a very accurate clock/counter that counts time from an initial value.
+
+┌─────────────────────────────────┐
+│  MH Real Time Clock Module 2    │
+│                                 │
+│  ┌──────────┐  ┌─────────────┐  │
+│  │  DS1302  │  │  CR2032     │  │
+│  │  chip    │  │  coin       │  │
+│  │          │  │  battery    │  │
+│  └──────────┘  └─────────────┘  │
+│                                 │
+│  [ VCC  GND  CLK  DAT  RST ]   │
+└─────────────────────────────────┘
+
+┌────────────────┬──────────────────────────────────────────────┐
+│      Part      │                   Purpose                    │
+├──────────────────────────────────────────────────────────────┤
+│ DS1302 chip    │ Counts seconds/minutes/hours/date accurately │
+├──────────────────────────────────────────────────────────────┤
+│ Crystal        │ Makes the counting accurate (32.768 kHz)     │
+├──────────────────────────────────────────────────────────────┤
+│ CR2032 battery │ Keeps time when ESP32 is powered off         │
+├──────────────────────────────────────────────────────────────┤
+│ 5 pins         │ Connect to ESP32                             │
+└────────────────┴──────────────────────────────────────────────┘
+
+---
+Wire Connection
+
+DS1302 Module          LyraT-Mini JTAG Header
+─────────────          ──────────────────────
+VCC    ────────────►   3V3
+GND    ────────────►   GND
+CLK    ────────────►   TCLK
+DAT    ────────────►   TDO
+RST    ────────────►   TMS
+
+Physical connection on your board:
+
+LyraT-Mini JTAG header pins (left to right):
+┌──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┐
+│ 3V3  │ GND  │ TX0  │ RX0  │ TMS  │ TDI  │ TCLK │ TDO  │
+└──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┘
+   │      │                    │               │      │
+   │      │                    │               │      │
+  VCC    GND                  RST             CLK    DAT
+         (DS1302 module pins)
+
+---
+What the Module Does — Step by Step
+
+1. ESP32 powers ON
+        │
+        ▼
+2. ESP32 reads DS1302 via CLK/DAT/RST wires
+        │
+        ▼
+3. DS1302 sends back: seconds, minutes, hours, date, month, year
+        │
+        ▼
+4. ESP32 prints it to serial monitor
+        │
+        ▼
+5. ESP32 powers OFF  ←── battery takes over
+        │
+        ▼
+6. DS1302 keeps counting silently (coin battery)
+        │
+        ▼
+7. ESP32 powers ON again → reads correct updated time
+
+---
+Expected Output on Serial Monitor
+
+I (270) RTC: Battery OK — reading saved time
+I (270) RTC: DS1302 RTC running
+I (280) RTC: 2026-07-04   10:22:00
+I (1280) RTC: 2026-07-04   10:22:01
+I (2280) RTC: 2026-07-04   10:22:02
+I (3280) RTC: 2026-07-04   10:22:03
+

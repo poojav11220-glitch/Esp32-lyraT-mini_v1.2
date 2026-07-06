@@ -1,0 +1,153 @@
+Bluetooth A2DP sink -play phone music onboard speaker.
+
+What it does: ESP32 appears as a Bluetooth speaker → connect phone → play any music through the board
+ Why cool: Combines everything — Bluetooth, audio codec, speaker output
+
+How it works:
+Phone (Spotify/YouTube)
+    ↓ Bluetooth A2DP (SBC audio, 44100 Hz stereo)
+ESP32 Bluetooth stack
+    ↓ PCM data callback
+FreeRTOS ring buffer
+    ↓ I2S task
+ES8311 DAC (GPIO5/25/26)
+    ↓
+Headphone jack
+
+What you'll be able to do:
+- Phone sees "LyraT Mini Speaker" in Bluetooth settings
+- Connect and play any audio app (Spotify, YouTube, calls)
+- Music plays through the headphone jack
+- Phone volume controls the output level
+
+
+Hardware — you already have everything on the board:
+
+┌───────────────────────────┬───────────────────────────────────────┬─────────────────────┐
+│         Component         │              What it is               │       Status        │
+├───────────────────────────────────────────────────────────────────────────────────────┤
+│ ESP32 chip                │ Has built-in Classic Bluetooth (A2DP) │ ✓ On board          │
+├───────────────────────────────────────────────────────────────────────────────────────┤
+│ ES8311 DAC                │ Audio output codec                    │ ✓ On board          │
+├───────────────────────────────────────────────────────────────────────────────────────┤
+│ PA amplifier              │ Drives the headphone output           │ ✓ On board (GPIO21) │
+├──────────────────────────────────────────────────────────────────────────────────────┤
+│ Headphone jack            │ 3.5mm audio out                       │ ✓ On board          │
+├───────────────────────────────────────────────────────────────────────────────────────┤
+│ PLAY / SET / BOOT buttons │ Optional controls                     │ ✓ On board          │
+└───────────────────────────┴───────────────────────────────────────┴─────────────────────┘
+
+You only need to bring:
+- Headphones / earphones (3.5mm)
+- Your phone (Bluetooth)
+
+
+Project: bt_speaker — Bluetooth A2DP Sink
+
+cd C:\Users\POOJA\Documents\bt_speaker
+idf.py set-target esp32
+idf.py -p COM3 flash monitor
+
+Connect your phone
+
+1. On your phone → Settings → Bluetooth → Search
+2. You will see "LyraT Mini Speaker"
+3. Tap to connect
+4. Play any music — it comes out through headphones
+
+
+Result: 
+--- Warning: GDB cannot open serial ports accessed as COMx
+--- Using \\.\COM3 instead...
+--- esp-idf-monitor 1.9.0 on \\.\COM3 115200
+--- Quit: Ctrl+] | Menu: Ctrl+T | Help: Ctrl+T followed by Ctrl+H
+I (13) boot: ESP-IDF v6.0.2 2nd stage bootloader
+I (13) boot: compile time Jul  3 2026 14:02:15
+I (13) boot: Multicore bootloader
+I (14) boot: chip revision: v3.1
+I (16) boot.esp32: SPI Speed      : 40MHz
+I (20) boot.esp32: SPI Mode       : DIO
+I (24) boot.esp32: SPI Flash Size : 8MB
+I (27) boot: Enabling RNG early entropy source...
+I (32) boot: Partition Table:
+I (34) boot: ## Label            Usage          Type ST Offset   Length
+I (41) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (47) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (54) boot:  2 factory          factory app      00 00 00010000 00300000
+I (60) boot: End of partition table
+I (64) esp_image: segment 0: paddr=00010020 vaddr=3f400020 size=2eaf8h (191224) map
+I (139) esp_image: segment 1: paddr=0003eb20 vaddr=3ffbdb60 size=014f8h (  5368) load
+I (142) esp_image: segment 2: paddr=00040020 vaddr=400d0020 size=ab9e8h (702952) map
+I (393) esp_image: segment 3: paddr=000eba10 vaddr=3ffbf058 size=03af8h ( 15096) load
+I (400) esp_image: segment 4: paddr=000ef510 vaddr=40080000 size=15a08h ( 88584) load
+I (436) esp_image: segment 5: paddr=00104f20 vaddr=50000000 size=00028h (    40) load
+I (447) boot: Loaded app from partition at offset 0x10000
+I (448) boot: Disabling RNG early entropy source...
+I (458) cpu_start: Multicore app
+I (466) cpu_start: GPIO 3 and 1 are used as console UART I/O pins
+I (467) cpu_start: Pro cpu start user code
+I (467) cpu_start: cpu freq: 160000000 Hz
+I (469) app_init: Application information:
+I (472) app_init: Project name:     bt_speaker
+I (477) app_init: App version:      dcc3fea
+I (481) app_init: Compile time:     Jul  3 2026 13:52:33
+I (486) app_init: ELF file SHA256:  dad2ea4b4...
+I (490) app_init: ESP-IDF:          v6.0.2
+I (494) efuse_init: Min chip rev:     v0.0
+I (498) efuse_init: Max chip rev:     v3.99 
+I (502) efuse_init: Chip rev:         v3.1
+I (506) heap_init: Initializing. RAM available for dynamic allocation:
+I (512) heap_init: At 3FFAFF10 len 000000F0 (0 KiB): DRAM
+I (517) heap_init: At 3FFB6388 len 00001C78 (7 KiB): DRAM
+I (522) heap_init: At 3FFB9A20 len 00004108 (16 KiB): DRAM
+I (527) heap_init: At 3FFCDE98 len 00012168 (72 KiB): DRAM
+I (532) heap_init: At 3FFE0440 len 00003AE0 (14 KiB): D/IRAM
+I (538) heap_init: At 3FFE4350 len 0001BCB0 (111 KiB): D/IRAM
+I (543) heap_init: At 40095A08 len 0000A5F8 (41 KiB): IRAM
+I (550) spi_flash: detected chip: generic
+I (552) spi_flash: flash io: dio
+I (556) coexist: coex firmware version: 6f3d08c
+I (560) main_task: Started on CPU0
+I (560) main_task: Calling app_main()
+I (610) ES8311: Work in Slave mode
+I (610) I2S_IF: No paired data, current mode: playback
+I (610) I2S_IF: STD: TX, data_bit: 16, slot_bit: 16, ws_width: 16, slot_mode: STEREO, slot_mask: 0x3
+I (610) I2S_IF: STD: TX, sample_rate_hz: 44100, mclk_multiple: 256, clk_src: 6
+I (640) Adev_Codec: Open codec device OK
+I (640) BTDM_INIT: BT controller compile version [e02a38e]
+I (640) BTDM_INIT: Using main XTAL as clock source
+I (650) BTDM_INIT: Bluetooth MAC: 20:43:a8:40:b2:aa
+I (650) phy_init: phy_version 4863,a3a4459,Oct 28 2025,14:30:06
+I (1330) bt_speaker: ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+I (1330) bt_speaker:   Bluetooth Speaker Ready!
+I (1330) bt_speaker:   Connect phone to: "LyraT Mini Speaker"
+W (1360) BT_BTC: A2DP Enable without AVRC
+W (1370) BT_BTC: AVRC Target is expected to be initialized in advance of A2DP !!!
+I (1370) bt_speaker: ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+I (1380) main_task: Returned from app_main()
+W (100360) BT_HCI: hcif conn complete: hdl 0x80, st 0x0
+W (100430) BT_HCI: hcif link supv_to changed: hdl 0x80, supv_to 8000
+I (104990) bt_speaker: Paired with: OnePlus Nord CE3 5G
+W (105730) BT_APPL: new conn_srvc id:19, app_id:0
+I (105730) bt_speaker: Phone connected! Play music now.
+W (105740) BT_BTC: AVRC not Init, not using it.
+W (108930) BT_HCI: hci cmd send: sniff: hdl 0x80, intv(400 800)
+W (108990) BT_HCI: hcif mode change: hdl 0x80, mode 2, intv 800, status 0x0
+W (109170) BT_HCI: hci cmd send: unsniff: hdl 0x80
+W (109550) BT_HCI: hcif mode change: hdl 0x80, mode 0, intv 0, status 0x0
+W (112750) BT_HCI: hci cmd send: sniff: hdl 0x80, intv(400 800)
+W (112850) BT_HCI: hcif mode change: hdl 0x80, mode 2, intv 800, status 0x0
+W (136050) BT_HCI: hcif mode change: hdl 0x80, mode 0, intv 0, status 0x0
+I (136130) BT_LOG: bta_av_link_role_ok hndl:x41 role:1 conn_audio:x1 bits:1 features:x8400
+
+W (136130) BT_APPL: new conn_srvc id:19, app_id:1
+I (136140) bt_speaker: Audio streaming
+I (206280) bt_speaker: Audio stopped
+W (209480) BT_HCI: hci cmd send: sniff: hdl 0x80, intv(30 54)
+W (209490) BT_HCI: hcif mode change: hdl 0x80, mode 2, intv 54, status 0x0
+W (211580) BT_HCI: hcif ssr evt: st 0x0, hdl 0x80, tx_lat 54 rx_lat 1188
+W (230270) BT_HCI: hcif mode change: hdl 0x80, mode 0, intv 0, status 0x0
+I (230290) BT_LOG: bta_av_link_role_ok hndl:x41 role:1 conn_audio:x1 bits:1 features:x8400
+
+I (230300) bt_speaker: Audio streaming
+I (426670) bt_speaker: Audio stopped

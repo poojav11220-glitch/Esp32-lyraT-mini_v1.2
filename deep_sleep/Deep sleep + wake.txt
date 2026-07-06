@@ -1,0 +1,101 @@
+Deep sleep + wake     │ Board sleeps, wakes on button press, logs wake count to NVS 
+
+
+How Deep Sleep Works
+
+The concept
+
+ESP32 has a very low power mode called deep sleep where almost everything turns off:
+
+Normal running  →  ~200mA current, CPU active
+Deep sleep      →  ~10µA current,  CPU completely off
+
+Only the RTC (Real-Time Clock) block stays alive — it watches for a wake signal.
+
+---
+What happens step by step
+
+Power on
+    │
+    ▼
+app_main() runs
+    │
+    ├── read NVS → get wake count
+    ├── print wake count + reason to serial
+    ├── wait 3 seconds (so you can see serial output)
+    │
+    ▼
+esp_deep_sleep_start()
+    │
+    ▼
+Board sleeps (serial goes silent, power drops)
+    │
+    ▼
+You press BOOT button (GPIO0)
+    │
+    ▼
+ESP32 wakes → runs app_main() AGAIN from scratch
+    │
+    ├── read NVS → wake count was 1, now save 2
+    ├── print "Wake #2, reason: button press"
+    ├── wait 3 seconds
+    │
+    ▼
+Sleeps again... cycle repeats
+
+Key point: waking from deep sleep is like a reboot — app_main() restarts from the top every time.
+
+---
+What button to press
+
+┌─────────────────────────┐
+│   ESP32 LyraT-Mini      │
+│                         │
+│  [BOOT]  ← press this   │
+│  [RST]                  │
+└─────────────────────────┘
+
+---
+Expected serial monitor output
+
+=== Boot #1 ===
+Wake reason : Power-on (first boot)
+Wake count  : 1
+Sleeping in 3s...
+
+--- silent --- (board is asleep, ~10µA)
+
+=== Boot #2 ===
+Wake reason : GPIO (BOOT button pressed)
+Wake count  : 2
+Sleeping in 3s...
+
+--- silent ---
+
+=== Boot #3 ===
+Wake reason : GPIO (BOOT button pressed)
+Wake count  : 3
+Sleeping in 3s...
+
+
+What you will see on the board 
+
+┌──────────────────────┬────────────────────┬───────────────────┬──────────────────────────┐
+│     Board state      │ Green LED (GPIO22) │ Blue LED (GPIO27) │          Serial          │
+├──────────────────────┼────────────────────┼─────────────────────────────────────────────┤
+│ Just woke / booted   │ ON                 │ OFF               │ Prints boot # and reason │
+├──────────────────────┼────────────────────┼────────────────────────────────────────────┤
+│ Awake (3 seconds)    │ ON                 │ OFF               │ Counting down            │
+├──────────────────────┼────────────────────┼─────────────────────────────────────────────┤
+│ Warning before sleep │ ON                 │ Blinks 3×         │ "Blue LED blinks 3x"     │
+├──────────────────────┼────────────────────┼─────────────────────────────────────────────┤
+│ Deep sleep           │ OFF                │ OFF               │ Silent                   │
+├──────────────────────┼────────────────────┼─────────────────────────────────────────────┤
+│ Press BOOT → wake    │ ON                 │ OFF               │ Prints next boot #       │
+└──────────────────────┴────────────────────┴───────────────────┴──────────────────────────┘
+
+---
+Pattern to watch:
+Green ON  →  waits 3 sec  →  Blue blinks 3×  →  Both OFF (sleeping)
+                                          ↑
+                              press BOOT here → Green ON again

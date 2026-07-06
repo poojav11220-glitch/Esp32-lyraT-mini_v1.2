@@ -1,0 +1,75 @@
+Button Toggle LED 
+
+What it does
+
+Press the BOOT button → Green LED toggles ON/OFF each press.
+
+---
+Flow
+
+Press BOOT button (GPIO0 goes LOW)
+        │
+        ▼
+Interrupt fires (NEGEDGE — falling edge only)
+        │
+        ▼
+ISR sends GPIO number into queue
+        │
+        ▼
+button_task wakes up
+        │
+        ├── wait 50ms (debounce — ignores button bounce noise)
+        ├── confirm button still pressed (gpio_get_level == 0)
+        ├── flip led_state (0→1 or 1→0)
+        └── gpio_set_level(LED_GPIO, led_state)
+
+---
+Key concepts used
+
+┌───────────────────┬───────────────┬───────────────────────────────────────────────────────────┐
+│      Concept      │     Where     │                            Why                            │
+├─────────────────────────────────────────────────────────────────────────────────────────────┤
+│ GPIO_INTR_NEGEDGE │ Button config │ Only triggers when pin goes HIGH→LOW (press), not release │
+├─────────────────────────────────────────────────────────────────────────────────────────────┤
+│ IRAM_ATTR         │ ISR function  │ ISR must run from RAM, not flash (faster, safer)          │
+├─────────────────────────────────────────────────────────────────────────────────────────────┤
+│ xQueueSendFromISR │ ISR           │ Can't do heavy work in ISR — sends to queue instead       │
+├─────────────────────────────────────────────────────────────────────────────────────────────┤
+│ xQueueReceive     │ Task          │ Task waits forever until queue has data                   │
+├─────────────────────────────────────────────────────────────────────────────────────────────┤
+│ vTaskDelay(50ms)  │ Task          │ Debounce — physical buttons bounce 10–50ms on press       │
+├─────────────────────────────────────────────────────────────────────────────────────────────┤
+│ pull_up_en        │ Button config │ Button reads HIGH normally, LOW when pressed              │
+└───────────────────┴───────────────┴───────────────────────────────────────────────────────────┘
+
+---
+Expected serial output
+
+Ready — press Boot button to toggle LED
+Button pressed! LED = ON
+Button pressed! LED = OFF
+Button pressed! LED = ON
+Button pressed! LED = OFF
+
+---
+On the board
+
+Press BOOT  →  Green LED turns ON
+Press BOOT  →  Green LED turns OFF
+Press BOOT  →  Green LED turns ON
+...
+
+
+┌─────────────────────────┬────────────────────────────────────────────────────────┐
+│         Action          │                    Expected Result                     │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ Flash completes         │ Monitor shows Ready — press Boot button to toggle LED  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ Press Boot button once  │ LED turns ON, monitor shows Button pressed! LED = ON   │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ Press Boot button again │ LED turns OFF, monitor shows Button pressed! LED = OFF │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ Keep pressing           │ LED toggles every press                                │
+└─────────────────────────┴────────────────────────────────────────────────────────┘
+
+---

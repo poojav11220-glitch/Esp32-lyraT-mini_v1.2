@@ -1,0 +1,79 @@
+Oled_lyra
+
+GME12864-11 (4-pin I2C) — Wiring & Code
+
+---
+Wiring
+
+┌─────────────┬──────────────┬─────────┐
+│ Display Pin │ ESP32 Header │  GPIO   
+├────────────────────────────────────┤
+│ VCC         │ 3V3          │ —       
+├────────────────────────────────────┤
+│ GND         │ GND          │ —       
+├────────────────────────────────────┤
+│ SDA         │ TCLK         │ GPIO 13 
+├────────────────────────────────────┤
+│ SCL         │ TMS          │ GPIO 14 
+└─────────────┴──────────────┴─────────┘
+
+ Build and Flash
+
+cd C:\Users\POOJA\Documents\oled_lyra
+idf.py set-target esp32
+idf.py -p COM3 flash monitor
+
+---
+Expected Display Output
+
+┌────────────────────────┐
+│ Hello World!           │
+│                        │
+│ ESP32 LyraT            │
+│ Counter:               │
+│ 0                      │
+│                        │
+└────────────────────────┘
+
+Counter increments every second.
+
+
+
+Key techniques used
+
+1. Bit-bang I2C (no hardware I2C driver)
+
+Instead of using ESP-IDF's I2C driver, it manually toggles GPIO pins to simulate I2C:
+GPIO13 = SDA (data)
+GPIO14 = SCL (clock)
+It manually generates START, STOP, and 8-bit clock pulses using ets_delay_us(5) — 5µs gaps = 100kHz I2C speed.
+
+2. SH1106 OLED controller
+
+The display is 128×64 pixels, organized in 8 pages (each page = 8 pixel rows):
+Page 0 → row  0-7   "Hello World!"
+Page 2 → row 16-23  "ESP32 LyraT"
+Page 3 → row 24-31  "Counter:"
+Page 4 → row 32-39  "42"
+
+3. Built-in 5×7 font
+
+No font library needed — the entire character set (ASCII 32–122) is stored as a lookup table of byte patterns:
+{0x7E,0x11,0x11,0x11,0x7E}  // 'A'
+Each byte = 1 column of 8 pixels. 5 bytes per character + 1 spacing byte = 6 pixels wide per char.
+
+---
+Expected output on serial monitor
+
+Counter: 0
+Counter: 1
+Counter: 2
+Counter: 3
+...
+
+---
+Important note — pins conflict with LyraT-Mini
+
+This project uses GPIO13 and GPIO14 for I2C. On LyraT-Mini:
+- GPIO13 = SDCARD_PWR_CTRL
+- GPIO14 = SD card CLK
